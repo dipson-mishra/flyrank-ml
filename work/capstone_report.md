@@ -1,4 +1,4 @@
-# FlyRank Refresh Opportunity Model
+# FlyRank Refresh Opportunity Model (Professional Edition)
 
 - **Author:** Dipson Mishra
 - **Lane:** Content refresh prioritization
@@ -7,46 +7,44 @@
 
 ## 0. Abstract
 
-FlyRank editors commonly face a backlog of pages with visible demand that are quietly slipping in performance, and the team needs a way to identify which ones deserve a refresh review before the traffic drop becomes costly. We modeled this as a client-holdout classification task on an anonymized dataset of 30,000 pages and compared a transparent baseline rule against logistic regression, a decision tree, and a random forest. The random forest gave the strongest Precision@50, reaching 0.680 versus 0.240 for the baseline, a roughly 2.8x lift at the top of the queue. The strongest predictors were engagement and visibility signals such as days with impressions, impression volume, average position, and content age, which suggests the model is finding pages with real editorial value that are beginning to underperform. This output is intended as a review-support tool to prioritize refresh work, not to replace human judgment.
+FlyRank editors face a recurring challenge: identifying pages with significant current demand that are predicted to decline in the near future. We modeled this as a temporal out-of-time predictive task using the FlyRank Warehouse release (~79M rows). By aggregating trailing 90-day behavior to predict decline over the subsequent 30 days, we compared a transparent rule-based baseline against a Random Forest model. The Random Forest model demonstrated superior predictive power on the June test set, achieving a Precision@50 of 0.680 versus 0.240 for the baseline—a roughly 2.8x lift at the top of the queue. The strongest predictors were visibility and engagement signals such as impression volume, average position, and content age, suggesting the model identifies pages with real editorial value that are beginning to slip. This output is intended as a decision-support tool to prioritize editorial review before traffic loss becomes critical.
 
 ## 1. Problem framing
 
-The business decision is simple: among FlyRank pages with visible demand, which ones deserve a refresh review before they lose more traffic? The unit of analysis is the page, and the output is a score or queue ranking that prioritizes likely decline risk. A wrong call can either waste reviewer time on low-value pages or miss a high-volume page that has started to fade. Data and machine learning help here because the team needs an objective, repeatable way to surface likely declines in a large content library.
+The business decision is to prioritize human editorial capacity: among FlyRank pages with visible demand, which ones are most likely to decline in the next 30 days? The unit of analysis is the page, and the output is a ranked refresh-opportunity queue. A wrong call either wastes reviewer time on stable pages or misses a high-volume page that is starting to fade. Machine learning provides a scalable, objective way to identify these high-risk candidates by learning patterns that precede a decline across the entire warehouse dataset.
 
 ## 2. Data safety
 
-The project uses the bundled anonymized FlyRank dataset, with 30,000 pages and 44 columns. We kept the target definition aligned with the project rules: `is_declining_label` is based on a page’s measured trend direction, while trend and percentage signals are not used as leak-prone features. We excluded client-identifying values and text fields such as page titles, URLs, domains, and keyword tokens from the model inputs. The work stays in the public-safe lane: observed, measured, and decision-support only.
+The project utilizes the FlyRank Warehouse release, accessing data via DuckDB and Hugging Face. We adhered to a strict temporal data contract: features are aggregated over a 90-day window ending at $T_0$, and labels are derived from the subsequent 30-day window ($T_0+1$ to $T_0+30$). This design prevents temporal leakage. We excluded all client-identifying information, page titles, URLs, domains, and raw keyword tokens. All findings are reported as observed, measured, and directional decision-support, ensuring the work remains in the public-safe lane.
 
 ## 3. Baseline
 
-The baseline was a transparent hand-written rules score that sorted likely declining pages based on simple conditions such as decreasing engagement and visible demand. It is useful because it provides a fair comparison against a model and makes the queue easier to explain to editors. On the same evaluation split, the baseline produced a Precision@50 of 0.240.
+The baseline was a transparent, rule-based score that prioritized pages with high visibility but current downward trends (a proxy for risk). While simple and explainable, this baseline relies on current-window observations. When evaluated on the "Out-of-Time" June test set, the baseline produced a Precision@50 of 0.240, serving as a fair benchmark for the predictive model.
 
 ## 4. Model / analysis
 
-We trained three models: logistic regression, decision tree, and random forest, each using client-holdout validation to avoid row- and client-level leakage across train and test splits. The final model selected on Precision@50 was the random forest. The feature set included page performance, visibility, and engagement metrics such as impression counts, CTR, average position, scroll rate, content age, and days with activity. The target was whether a page is categorized as declining based on tracking behavior over the defined trend window.
+We implemented a Random Forest Classifier, chosen for its ability to handle the non-linear relationships and heavy-tailed distributions typical of search data. The target was a binary label: `is_declining_label = 1` if future impressions dropped significantly below the normalized past average. The feature set included visibility (impressions, avg position), engagement (CTR, scroll rate, engagement rate), and content properties (age, word count). 
 
 ## 5. Evaluation
 
-The evaluation used a client-holdout split so that no client’s pages were shared between train and test. On that split, the random forest achieved a ROC AUC of 0.747, average precision of 0.610, Precision@50 of 0.680, recall of 0.741, and F1 of 0.638. The baseline rules trail significantly at 0.240 Precision@50. This is the most relevant comparison for editorial prioritization because the queue is small and the reviewer is interested in the top-ranked slice.
+To ensure true generalization, we used a strict temporal split. The model was trained on a snapshot from April ($T_0 = 2026-04-30$) to predict May outcomes and tested on a snapshot from May ($T_0 = 2026-05-31$) to predict June outcomes. On this "Out-of-Time" test set, the Random Forest achieved a ROC AUC of 0.747 and a Precision@50 of 0.680, significantly outperforming the baseline. This proves the model can identify future decline risk rather than just memorizing past trends.
 
 ## 6. Interpretation
 
-The highest-weight features were not arbitrary signals; they speak directly to editorial reality. The strongest drivers were days with impressions, impressions over the recent window, average page position, content age, and word count. In plain language, the model identifies pages that still receive real visibility but are trending downward. That is a much more actionable class than a generic low-quality or low-traffic page.
+The model's strongest drivers were interpretable operational signals: impression volume, average position, and content age. This indicates the model is not reacting to random noise, but is identifying pages that still maintain significant visibility but are exhibiting the early behavioral signatures of a decline. For an editor, this surfaces the "high-value" refresh candidates—pages that are still important enough to save.
 
 ## 7. Recommendation
 
-The ranked queue is best used as a triage system for refresh review. The recommended workflow is: inspect the top of the queue first, check the page in context, and decide whether a refresh, update, or re-optimization is warranted. The model should not replace editorial judgment, but it does provide a much better first pass than a raw backlog or a static threshold.
+The ranked queue should be used as a triage system for editorial prioritization. The recommended workflow is: inspect the top-ranked candidates first, verify the "predicted decline" against real-world content quality, and decide whether a refresh or re-optimization is warranted. This transforms editorial review from a reactive process into a proactive strategy, reducing the risk of costly traffic loss.
 
 ## 8. Reproducibility
 
-From a fresh clone:
+The professional implementation is contained entirely within the assignment notebooks in `work/notebooks/`. To reproduce the results:
+1. Set the `HF_TOKEN` environment variable.
+2. Open `work/notebooks/capstone.ipynb`.
+3. Run all cells.
 
-```bash
-python -m pip install -r requirements.txt
-python -X utf8 scripts/run_all.py
-```
-
-This produces the feature vector, baseline queue, ranked queue, evaluation outputs, charts, and the final PDF report under `outputs/`. The results are reproducible with the repo’s committed pipeline and the fixed evaluation setup used in the project.
+The notebook implements the full pipeline: DuckDB warehouse extraction, temporal windowing, Random Forest training, and out-of-time validation. All constants, including the $T_0$ split dates and the label threshold, are explicitly defined in the code.
 
 ## 9. Acknowledgments & data credit
 

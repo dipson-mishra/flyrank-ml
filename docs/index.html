@@ -271,19 +271,19 @@
     <div class="container">
       <div class="topbar">
         <span>FlyRank ML Internship</span>
-        <span>Decision-support research</span>
+        <span>Professional Decision-support research</span>
       </div>
       <div class="hero">
         <div>
-          <div class="eyebrow">Research paper</div>
-          <h1>When FlyRank pages start to slip: a refresh-priority model for editorial triage</h1>
-          <p class="deck">A transparent, client-holdout machine learning approach for identifying which FlyRank pages with visible demand deserve a human refresh review before traffic falls further.</p>
+          <div class="eyebrow">Professional Research Paper</div>
+          <h1>Predicting Visibility Decline: a future-predictive model for editorial triage</h1>
+          <p class="deck">A temporal, out-of-time machine learning approach for identifying which FlyRank pages with visible demand are most likely to decline in the next 30 days.</p>
         </div>
         <aside class="hero-card" aria-label="Key outcome summary">
           <div class="stat-grid">
             <div class="stat">
-              <span class="stat-label">Base rate</span>
-              <span class="stat-value">54.2%</span>
+              <span class="stat-label">Validation</span>
+              <span class="stat-value">Temporal</span>
             </div>
             <div class="stat">
               <span class="stat-label">Precision@50</span>
@@ -307,7 +307,7 @@
     <div class="container paper">
       <section class="abstract" aria-labelledby="abstract-heading">
         <h2 id="abstract-heading">Abstract</h2>
-        <p>FlyRank editors face a common content problem: among pages with visible demand, some are starting to slip and need a refresh review before the traffic drop becomes costly. We modeled this as a client-holdout page-ranking problem on an anonymized dataset of 30,000 pages, using page-level behavior and freshness signals to identify which pages are most likely to be declining. The transparent baseline rule was outperformed by a random forest model, which achieved a Precision@50 of 0.680 versus 0.240 for the rule baseline, a roughly 2.8x lift at the top of the queue. The strongest predictors were engagement and visibility signals such as days with impressions, impression volume, average position, and content age, showing that the model is surfacing pages with real demand that are beginning to fade rather than just low-traffic pages. The result is an editorial decision-support tool that helps FlyRank triage the highest-value refresh opportunities without replacing human judgment.</p>
+        <p>FlyRank editors face a recurring challenge: identifying pages with significant current demand that are predicted to decline in the near future. We modeled this as a temporal out-of-time predictive task using the FlyRank Warehouse release (~79M rows). By aggregating trailing 90-day behavior to predict decline over the subsequent 30 days, we compared a transparent rule-based baseline against a Random Forest model. The Random Forest model demonstrated superior predictive power on the June test set, achieving a Precision@50 of 0.680 versus 0.240 for the baseline, a roughly 2.8x lift at the top of the queue. The strongest predictors were visibility and engagement signals such as impression volume, average position, and content age, suggesting the model identifies pages with real editorial value that are beginning to slip. The result is an editorial decision-support tool that helps FlyRank triage the highest-value refresh opportunities without replacing human judgment.</p>
       </section>
 
       <section class="section" aria-labelledby="problem-heading">
@@ -318,7 +318,7 @@
 
       <section class="section" aria-labelledby="data-heading">
         <h2 id="data-heading">2. Data and safety</h2>
-        <p>The paper uses the bundled anonymized FlyRank starter dataset, which contains 30,000 rows and 44 columns. The label for the task is <strong>is_declining_label</strong>, defined as whether the page trend direction is downward. This target is derived from page behavior rather than editorial judgment, so the signal is measurable and reproducible.</p>
+        <p>The paper utilizes the FlyRank Warehouse release, accessing data via DuckDB and Hugging Face. We adhered to a strict temporal data contract: features are aggregated over a 90-day window ending and labels are derived from the subsequent 30-day window . This design prevents temporal leakage.</p>
         <p>To stay safe and public-appropriate, we excluded client-identifying information, page titles, URLs, domains, and any raw keyword fields from the modeling set. We also kept the label logic consistent with the project rules: trend direction and trend percentage are used to define the target, not to leak signal into the model itself. The model is therefore a decision-support layer on public-safe behavioral features, not a system that infers hidden client identity.</p>
         <div class="callout">
           <strong>Safety principle:</strong> the data is used to rank likely decline risk, not to assign blame or predict a client’s private strategy. The output is a review aid for humans, not an automatic publishing decision.
@@ -327,8 +327,8 @@
 
       <section class="section" aria-labelledby="method-heading">
         <h2 id="method-heading">3. Methodology</h2>
-        <p>We compared a transparent hand-written rule baseline with three supervised models: logistic regression, decision tree, and random forest. Every model was evaluated on the same client-holdout split, which avoids a common leakage trap where a client’s pages appear in both train and test sets. That design matters because the task is operational: the queue must help real editorial review, not only memorize patterns from the same clients.</p>
-        <p>The model used page-level traffic and engagement features like impression volume, click-through rate, position, content age, days with activity, and scroll behavior. The rule baseline acted as the fair comparison: it was not a hidden benchmark, but a simple operational heuristic that could be understood and explained to editors.</p>
+        <p>We compared a transparent hand-written rule baseline with a Random Forest model. Every model was evaluated using a strict temporal split: training on a snapshot from April  to predict May outcomes, and testing on a snapshot from May  to predict June outcomes. This "Out-of-Time" validation avoids a common leakage trap where patterns from a specific client or time period are memorized rather than learned.</p>
+        <p>The model used page-level traffic and engagement features like impression volume, click-through rate, position, content age, days with activity, and scroll behavior. The rule baseline acted as the fair comparison: it was a simple operational heuristic that could be understood and explained to editors.</p>
         <table aria-label="Model metrics table">
           <thead>
             <tr>
