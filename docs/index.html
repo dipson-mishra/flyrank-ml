@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>When readers decline: a FlyRank refresh model for prioritizing page updates</title>
+  <meta name="description" content="A research page showing how a client-holdout random forest model identifies declining content for editorial refresh review." />
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --heading: #16202d;
+      --muted: #58657a;
+      --line: #dfe7f1;
+      --primary: #0d5bd7;
+      --primary-soft: #ebf2ff;
+      --accent: #1b8f73;
+      --accent-soft: #eafaf5;
+      --warning: #9a6300;
+      --warning-soft: #fff4d6;
+      --shadow: 0 16px 40px rgba(16, 24, 40, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--heading);
+      line-height: 1.65;
+    }
+
+    a { color: var(--primary); }
+    h1, h2, h3 { line-height: 1.2; margin: 0 0 0.7em; }
+    p { margin: 0 0 1rem; }
+
+    .container {
+      width: min(1100px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .masthead {
+      background: linear-gradient(135deg, #0e1d35, #123d6a 52%, #0f5b89);
+      color: white;
+      padding: 2rem 0 2.4rem;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      font-size: 0.86rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.5fr 0.9fr;
+      gap: 2rem;
+      align-items: end;
+    }
+
+    .eyebrow {
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #c9dbff;
+      margin: 0 0 0.9rem;
+    }
+
+    h1 {
+      font-size: clamp(2.1rem, 3vw, 3.3rem);
+      letter-spacing: -0.04em;
+      margin-bottom: 0.8rem;
+    }
+
+    .deck {
+      font-size: 1.12rem;
+      max-width: 62ch;
+      color: #dfe9ff;
+      margin: 0;
+    }
+
+    .hero-card {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 16px;
+      padding: 1.2rem 1.25rem;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 0.8rem;
+      margin-top: 1rem;
+    }
+
+    .stat {
+      padding: 0.85rem 0.9rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .stat-label {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #c9dbff;
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-value {
+      font-size: 1.7rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    main {
+      padding: 2.8rem 0 4rem;
+    }
+
+    .paper {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: clamp(1.2rem, 2vw, 2rem);
+    }
+
+    .abstract {
+      background: var(--primary-soft);
+      border-left: 4px solid var(--primary);
+      border-radius: 14px;
+      padding: 1.2rem 1.4rem;
+      margin: 0 0 2rem;
+    }
+
+    .abstract h2 {
+      font-size: 1.05rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #173c75;
+      margin-bottom: 0.8rem;
+    }
+
+    .section {
+      padding-top: 0.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 1.2rem;
+    }
+
+    .section:last-child { border-bottom: none; }
+
+    .section h2 {
+      font-size: clamp(1.5rem, 2vw, 2.2rem);
+      letter-spacing: -0.03em;
+      margin-bottom: 0.7rem;
+    }
+
+    .section h3 {
+      font-size: 1.1rem;
+      margin-top: 1.2rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.2rem;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 0.8rem 0.9rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f4f7fb;
+      font-weight: 700;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .good {
+      color: #0a7f67;
+      font-weight: 700;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .chart {
+      background: #f9fbff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 0.8rem;
+    }
+
+    .chart img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      background: white;
+    }
+
+    .chart figcaption {
+      margin-top: 0.65rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .callout {
+      background: var(--accent-soft);
+      border-left: 4px solid var(--accent);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      margin: 1rem 0;
+    }
+
+    .warning {
+      background: var(--warning-soft);
+      border-left: 4px solid var(--warning);
+    }
+
+    .tight-list {
+      margin: 0.6rem 0 0;
+      padding-left: 1.2rem;
+    }
+
+    .credit {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+      font-size: 0.96rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; }
+      .chart-grid { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <header class="masthead">
+    <div class="container">
+      <div class="topbar">
+        <span>FlyRank ML Internship</span>
+        <span>Decision-support research</span>
+      </div>
+      <div class="hero">
+        <div>
+          <div class="eyebrow">Research paper</div>
+          <h1>When readers decline: a FlyRank refresh model for prioritizing page updates</h1>
+          <p class="deck">A transparent, client-holdout machine learning approach for identifying pages most likely to lose traffic and deserve a refresh review before they decline further.</p>
+        </div>
+        <aside class="hero-card" aria-label="Key outcome summary">
+          <div class="stat-grid">
+            <div class="stat">
+              <span class="stat-label">Base rate</span>
+              <span class="stat-value">54.2%</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Precision@50</span>
+              <span class="stat-value">0.680</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Lift vs. rule</span>
+              <span class="stat-value">2.8×</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Best model</span>
+              <span class="stat-value">RF</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container paper">
+      <section class="abstract" aria-labelledby="abstract-heading">
+        <h2 id="abstract-heading">Abstract</h2>
+        <p>FlyRank editors face a common content problem: a backlog of pages still receives visible demand but is quietly slipping in performance, and the team needs a way to identify which ones deserve a refresh review before the traffic drop becomes costly. We modeled this as a client-holdout page-ranking problem on an anonymized dataset of 30,000 pages, using page-level behavior and freshness signals to predict which pages are most likely to be declining. The transparent baseline rule was outperformed by a random forest model, which achieved a Precision@50 of 0.680 versus 0.240 for the rule baseline, a roughly 2.8x lift at the top of the queue. The strongest predictors were engagement and visibility signals such as days with impressions, impression volume, average position, and content age, showing that the model is surfacing pages with real demand that are beginning to fade rather than just low-traffic pages. The result is an editorial decision-support tool that helps FlyRank triage the highest-value refresh opportunities without replacing human judgment.</p>
+      </section>
+
+      <section class="section" aria-labelledby="problem-heading">
+        <h2 id="problem-heading">1. Problem and why it matters</h2>
+        <p>For FlyRank, the practical content problem is not finding pages that are already obviously broken. It is finding the pages that still attract visibility, still carry editorial value, and yet are quietly slipping in performance. A small decline on a high-volume page can turn into a real missed opportunity if the page sits in the backlog without a refresh review for weeks.</p>
+        <p>The decision-support question is straightforward: when should a human reviewer inspect a page and consider a refresh? A good ranking model should surface the pages with the highest expected upside and the clearest evidence of deterioration while avoiding an endless queue of low-potential content. That is exactly where a score-based queue fits: it narrows the review set, shows the strongest reasons behind each recommendation, and keeps the final choice in the editor’s hands.</p>
+      </section>
+
+      <section class="section" aria-labelledby="data-heading">
+        <h2 id="data-heading">2. Data and safety</h2>
+        <p>The paper uses the bundled anonymized FlyRank starter dataset, which contains 30,000 rows and 44 columns. The label for the task is <strong>is_declining_label</strong>, defined as whether the page trend direction is downward. This target is derived from page behavior rather than editorial judgment, so the signal is measurable and reproducible.</p>
+        <p>To stay safe and public-appropriate, we excluded client-identifying information, page titles, URLs, domains, and any raw keyword fields from the modeling set. We also kept the label logic consistent with the project rules: trend direction and trend percentage are used to define the target, not to leak signal into the model itself. The model is therefore a decision-support layer on public-safe behavioral features, not a system that infers hidden client identity.</p>
+        <div class="callout">
+          <strong>Safety principle:</strong> the data is used to rank likely decline risk, not to assign blame or predict a client’s private strategy. The output is a review aid for humans, not an automatic publishing decision.
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="method-heading">
+        <h2 id="method-heading">3. Methodology</h2>
+        <p>We compared a transparent hand-written rule baseline with three supervised models: logistic regression, decision tree, and random forest. Every model was evaluated on the same client-holdout split, which avoids a common leakage trap where a client’s pages appear in both train and test sets. That design matters because the task is operational: the queue must help real editorial review, not only memorize patterns from the same clients.</p>
+        <p>The model used page-level traffic and engagement features like impression volume, click-through rate, position, content age, days with activity, and scroll behavior. The rule baseline acted as the fair comparison: it was not a hidden benchmark, but a simple operational heuristic that could be understood and explained to editors.</p>
+        <table aria-label="Model metrics table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>ROC AUC</th>
+              <th>Avg precision</th>
+              <th>Precision@50</th>
+              <th>Recall</th>
+              <th>F1</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Decision tree</td>
+              <td>0.742</td>
+              <td>0.575</td>
+              <td>0.620</td>
+              <td>0.716</td>
+              <td>0.634</td>
+            </tr>
+            <tr>
+              <td>Logistic regression</td>
+              <td>0.700</td>
+              <td>0.522</td>
+              <td>0.400</td>
+              <td>0.567</td>
+              <td>0.566</td>
+            </tr>
+            <tr>
+              <td><strong>Random forest</strong></td>
+              <td><strong>0.747</strong></td>
+              <td><strong>0.610</strong></td>
+              <td><strong>0.680</strong></td>
+              <td><strong>0.741</strong></td>
+              <td><strong>0.638</strong></td>
+            </tr>
+            <tr>
+              <td>Baseline rules</td>
+              <td>0.627</td>
+              <td>0.468</td>
+              <td>0.240</td>
+              <td>-</td>
+              <td>-</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section" aria-labelledby="results-heading">
+        <h2 id="results-heading">4. Results</h2>
+        <p>The random forest model was selected as the best-performing option on precision-at-50, the metric that matters most when the queue is limited and reviewer time is constrained. With a 54.2% declining base rate, the model improved Precision@50 from 0.240 to 0.680. In practical terms, the top of the ranked queue contains more than twice as many genuinely declining pages than the equitable rule baseline, which makes the queue much more reviewable for a real editorial flow.</p>
+        <div class="chart-grid">
+          <figure class="chart">
+            <img src="charts/top_feature_importance.svg" alt="Top feature importance chart" />
+            <figcaption>Top feature importance: sustained page visibility and age signals drive the decline signal.</figcaption>
+          </figure>
+          <figure class="chart">
+            <img src="charts/confidence_mix.svg" alt="Queue confidence mix chart" />
+            <figcaption>Most scored pages fall into a medium-confidence band, which is appropriate for a review queue.</figcaption>
+          </figure>
+        </div>
+        <div class="chart-grid">
+          <figure class="chart">
+            <img src="charts/top_reason_codes.svg" alt="Top reason codes chart" />
+            <figcaption>Page decline is most strongly explained by visible demand that is fading, not by raw inactivity alone.</figcaption>
+          </figure>
+          <figure class="chart">
+            <img src="charts/trend_distribution.svg" alt="Trend distribution chart" />
+            <figcaption>The underlying page population is dominated by declining pages, reinforcing the importance of ranking rather than binary thresholding.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="interpretation-heading">
+        <h2 id="interpretation-heading">5. Interpretation</h2>
+        <p>The strongest predictors were not exotic NLP features or client metadata — they were survivable, interpretable operational signals: <strong>days with impressions</strong>, <strong>log impressions in the past 90 days</strong>, <strong>average position</strong>, <strong>content age</strong>, and <strong>word count</strong>. That pattern is useful because it shows that the model is looking for pages with visible demand and declining quality signals rather than random low-volume noise.</p>
+        <p>In plain language, the model is saying: the highest-value refresh candidates are pages that still have meaningful visibility, but whose traffic pattern and prominence have begun to soften. For an editor, this is exactly the decision-support signal they need: a page that is still important enough to repair, but currently underperforming relative to its own baseline.</p>
+        <div class="callout warning">
+          <strong>Important limit:</strong> this model is a ranking tool. It does not say a page is definitely a content failure, nor does it say a page should be automatically changed without editorial judgment.
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="recommendation-heading">
+        <h2 id="recommendation-heading">6. Recommendations</h2>
+        <p>Based on this work, a sane production policy is:</p>
+        <ul class="tight-list">
+          <li>Review the top-ranked pages first, starting with the highest-confidence queue entries.</li>
+          <li>Prioritize pages that are both high-volume and in an evident downward trend, especially where low CTR or reduced engagement suggests a diminishing return.</li>
+          <li>Use the model as a triage layer, not a single verdict: it should surface review candidates, not replace subject-matter judgment.</li>
+          <li>Capture a human review loop so the final refresh decision is checked against actual page quality and current editorial goals.</li>
+        </ul>
+        <p>That makes the model useful in daily operations without over-claiming causal certainty. It is a review aid for editorial prioritization and a disciplined way to escalate the best refresh opportunities before they become expensive misses.</p>
+      </section>
+
+      <section class="section" aria-labelledby="repro-heading">
+        <h2 id="repro-heading">7. Reproducibility</h2>
+        <p>All project artifacts are stored in this repository. To regenerate the pipeline from a fresh clone:</p>
+        <pre style="padding: 1rem; background: #0f172a; color: #e2e8f0; border-radius: 12px; overflow-x: auto; margin: 0.8rem 0;">python -m pip install -r requirements.txt
+python -X utf8 scripts/run_all.py</pre>
+        <p>The pipeline writes the final queue to <code>outputs/refresh_queue.csv</code>, the Markdown report to <code>outputs/model_report.md</code>, and the PDF summary to <code>outputs/flyrank_refresh_model_results.pdf</code>. The client holdout split, baseline comparison, and feature set are embedded in the project workflow and can be re-run to confirm the same decision-support pattern.</p>
+      </section>
+
+      <section class="section" aria-labelledby="credit-heading">
+        <h2 id="credit-heading">8. Acknowledgments and data credit</h2>
+        <p>This work was built on the <a href="https://flyrank.ai" target="_blank" rel="noreferrer">FlyRank ML Internship dataset</a>. The model and the findings are intended for editorial research and decision-support work, not for automatic action without a human review step.</p>
+      </section>
+
+      <div class="credit">
+        Built on the FlyRank ML Internship dataset: <a href="https://flyrank.ai" target="_blank" rel="noreferrer">flyrank.ai</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
