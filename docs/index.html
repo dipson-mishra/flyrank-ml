@@ -276,8 +276,8 @@
       <div class="hero">
         <div>
           <div class="eyebrow">Research paper</div>
-          <h1>When readers decline: a FlyRank refresh model for prioritizing page updates</h1>
-          <p class="deck">A transparent, client-holdout machine learning approach for identifying pages most likely to lose traffic and deserve a refresh review before they decline further.</p>
+          <h1>When FlyRank pages start to slip: a refresh-priority model for editorial triage</h1>
+          <p class="deck">A transparent, client-holdout machine learning approach for identifying which FlyRank pages with visible demand deserve a human refresh review before traffic falls further.</p>
         </div>
         <aside class="hero-card" aria-label="Key outcome summary">
           <div class="stat-grid">
@@ -307,13 +307,13 @@
     <div class="container paper">
       <section class="abstract" aria-labelledby="abstract-heading">
         <h2 id="abstract-heading">Abstract</h2>
-        <p>FlyRank editors face a common content problem: a backlog of pages still receives visible demand but is quietly slipping in performance, and the team needs a way to identify which ones deserve a refresh review before the traffic drop becomes costly. We modeled this as a client-holdout page-ranking problem on an anonymized dataset of 30,000 pages, using page-level behavior and freshness signals to predict which pages are most likely to be declining. The transparent baseline rule was outperformed by a random forest model, which achieved a Precision@50 of 0.680 versus 0.240 for the rule baseline, a roughly 2.8x lift at the top of the queue. The strongest predictors were engagement and visibility signals such as days with impressions, impression volume, average position, and content age, showing that the model is surfacing pages with real demand that are beginning to fade rather than just low-traffic pages. The result is an editorial decision-support tool that helps FlyRank triage the highest-value refresh opportunities without replacing human judgment.</p>
+        <p>FlyRank editors face a common content problem: among pages with visible demand, some are starting to slip and need a refresh review before the traffic drop becomes costly. We modeled this as a client-holdout page-ranking problem on an anonymized dataset of 30,000 pages, using page-level behavior and freshness signals to identify which pages are most likely to be declining. The transparent baseline rule was outperformed by a random forest model, which achieved a Precision@50 of 0.680 versus 0.240 for the rule baseline, a roughly 2.8x lift at the top of the queue. The strongest predictors were engagement and visibility signals such as days with impressions, impression volume, average position, and content age, showing that the model is surfacing pages with real demand that are beginning to fade rather than just low-traffic pages. The result is an editorial decision-support tool that helps FlyRank triage the highest-value refresh opportunities without replacing human judgment.</p>
       </section>
 
       <section class="section" aria-labelledby="problem-heading">
         <h2 id="problem-heading">1. Problem and why it matters</h2>
         <p>For FlyRank, the practical content problem is not finding pages that are already obviously broken. It is finding the pages that still attract visibility, still carry editorial value, and yet are quietly slipping in performance. A small decline on a high-volume page can turn into a real missed opportunity if the page sits in the backlog without a refresh review for weeks.</p>
-        <p>The decision-support question is straightforward: when should a human reviewer inspect a page and consider a refresh? A good ranking model should surface the pages with the highest expected upside and the clearest evidence of deterioration while avoiding an endless queue of low-potential content. That is exactly where a score-based queue fits: it narrows the review set, shows the strongest reasons behind each recommendation, and keeps the final choice in the editor’s hands.</p>
+        <p>The decision-support question is straightforward: among FlyRank pages with visible demand, which ones deserve a human review first? A good ranking model should surface the pages with the highest expected upside and the clearest evidence of deterioration while avoiding an endless queue of low-potential content. That is exactly where a score-based queue fits: it narrows the review set, shows the strongest reasons behind each recommendation, and keeps the final choice in the editor’s hands.</p>
       </section>
 
       <section class="section" aria-labelledby="data-heading">
