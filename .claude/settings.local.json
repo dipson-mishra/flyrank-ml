@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "mcp__pycharm__list_directory_tree"
+      "mcp__pycharm__list_directory_tree",
+      "mcp__pycharm__run_notebook_cell",
+      "mcp__pycharm__wait_cell_execution",
+      "mcp__pycharm__read_notebook_cell",
+      "mcp__pycharm__edit_notebook",
+      "mcp__pycharm__get_notebook_state"
     ]
   }
 }
